@@ -48,6 +48,11 @@ make distclean
 
 ```
 
+- When running the ./configure command it might take anywhere from 20-30 minutes to completecd 
+
+![Zeek Configure](img/zeek_configure1_1.png)
+![Zeek Configure](img/zeek_configure1_2.png)
+
 ---
 
 ## 2. Real-time Detection Planning
