@@ -51,6 +51,7 @@ git docker-compose up
 - Port 443 Error as Wazuh is already using this port, meaning we need to configure MISP to use localhost:444
 - Improper build configurations with docker-compose.yml
 - Permission errors when trying to build/access certain files and folders
+- Authentication Error with redis
 
 ### Port 443 Error & proper build configuration
 
@@ -126,6 +127,8 @@ mkdir -p configs logs files ssl gnupg
 sudo chown -R 33:33 configs logs files gnupg ssl
 ```
 
+sudo chown -R www-data:www-data configs logs files gnupg ssl
+
 #### 3. Start MISP Fresh
 ```bash
 # Launch MISP with clean environment
@@ -182,3 +185,8 @@ admin
 
 ![MISP_Dashboard](img/MISP_DB.png)
 
+
+
+## How to implement with Wazuh 
+
+Wazuh -> GrayLog -> MISP -> GrayLog -> OpenSearch
