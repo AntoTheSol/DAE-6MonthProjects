@@ -185,7 +185,470 @@ admin
 
 ![MISP_Dashboard](img/MISP_DB.png)
 
+---
 
+## Troubleshooting: Authentication Keys Error
+
+**Issue encountered:**  
+MISP authentication keys page showing internal error and Redis connection failures.
+
+**Error symptoms:**
+- [ ] Internal server error when accessing `/auth_keys/index`
+- [ ] Redis connection refused errors in logs
+- [ ] "Value not set" errors for Redis configuration
+- [ ] File permission denied errors for config backup
+
+**Root cause identified:**  
+MISP's internal Redis configuration was incorrect (`127.0.0.1`) despite correct environment variables in `.env` file.
+
+**Required .env Redis configuration:**
+
+```bash
+# Redis settings in .env file
+REDIS_HOST=redis
+REDIS_PORT=6379
+REDIS_PASSWORD=redispassword
+```
+
+Note: These environment variables set the container-level configuration, but MISP's internal application settings must be configured separately.
+
+**What triggers this issue:**  
+Container restarts or fresh installations where MISP's internal settings don't automatically sync with environment variables.
+
+**Error log samples:**
+
+```bash
+# Redis connection error
+[RedisException] Connection refused
+Error in: /var/www/MISP/app/Lib/Tools/RedisTool.php, Line: 39
+
+# Permission error
+Warning Error: copy(/var/www/MISP/app/Config/config.backup.php): Failed to open stream: Permission denied
+
+# Configuration error
+{
+    "value": "127.0.0.1",
+    "error": 1,
+    "errorMessage": "Value not set.",
+    "setting": "MISP.redis_host"
+}
+```
+
+**Where this occurs in the system:**  
+Authentication key management requires Redis connectivity for caching and session management.
+
+---
+
+## Solution Steps
+
+**Did you verify Redis connectivity first?**
+- [x] Yes
+- [ ] No
+
+**Test Redis connection:**
+
+```bash
+# Verify Redis container is running and accessible
+docker exec misp-docker-misp-core-1 php -r "
+\$redis = new Redis();
+\$result = \$redis->connect('redis', 6379);
+if (\$result) {
+    echo 'Connected to Redis: YES\n';
+    \$auth = \$redis->auth('redispassword');
+    echo 'Authentication: ' . (\$auth ? 'SUCCESS' : 'FAILED') . '\n';
+} else {
+    echo 'Connection to Redis: FAILED\n';
+}
+"
+```
+
+**Step 1: Fix file permissions**
+
+```bash
+# Create config backup file with proper permissions
+docker exec misp-docker-misp-core-1 touch /var/www/MISP/app/Config/config.backup.php
+docker exec misp-docker-misp-core-1 chown www-data:www-data /var/www/MISP/app/Config/config.backup.php
+docker exec misp-docker-misp-core-1 chmod 664 /var/www/MISP/app/Config/config.backup.php
+```
+
+**Step 2: Set correct Redis configuration in MISP**
+
+```bash
+# Update MISP's internal Redis settings
+docker exec misp-docker-misp-core-1 /var/www/MISP/app/Console/cake admin setSetting MISP.redis_host redis
+docker exec misp-docker-misp-core-1 /var/www/MISP/app/Console/cake admin setSetting MISP.redis_password redispassword
+docker exec misp-docker-misp-core-1 /var/www/MISP/app/Console/cake admin setSetting MISP.redis_port 6379
+docker exec misp-docker-misp-core-1 /var/www/MISP/app/Console/cake admin setSetting MISP.redis_database 13
+```
+
+**Step 3: Verify configuration**
+
+```bash
+# Check that settings are properly saved
+docker exec misp-docker-misp-core-1 /var/www/MISP/app/Console/cake admin getSetting MISP.redis_host
+```
+
+**Expected output after fix:**
+
+```json
+{
+    "value": "redis",
+    "errorMessage": null,
+    "setting": "MISP.redis_host"
+}
+```
+
+**Final verification:**  
+Access `https://localhost:444/auth_keys/index` - page should load without internal errors.
+
+---
+
+## Reflection & Learning
+
+**What did you learn while troubleshooting this authentication issue?**
+
+> Docker environment variables in `.env` files don't automatically sync with application internal configurations. MISP stores settings in its own database/config system that requires separate configuration even when container environment variables are correct.
+
+**Key insight discovered:**
+
+> File permissions (`www-data` ownership) are critical for MISP configuration changes. The container must be able to create backup files before saving new settings.
+
+**Anything you would do differently or improve in the future?**
+
+> Document the Redis configuration verification process as part of initial setup rather than waiting for issues to arise. Consider creating a setup script that automatically sets internal MISP Redis configuration to match environment variables.
+
+**Prevention for future deployments:**
+
+```bash
+# Add to post-installation checklist
+docker exec misp-docker-misp-core-1 /var/www/MISP/app/Console/cake admin getSetting MISP.redis_host
+# Should return "redis" not "127.0.0.1"
+```
+
+## Why are Authentication Keys important for MISP
+
+The authentication keys section is critical for several security and operational reasons in MISP:
+
+**API Access Control**
+Authentication keys are MISP's primary method for controlling programmatic access. Without working authentication keys:
+
+- Automated threat intelligence feeds can't sync data
+- Third-party integrations (like Wazuh) can't pull IoC data
+- API-based workflows for importing/exporting threat data fail
+
+**Security Integration Pipeline**
+For MISP-Wazuh integration specifically:
+
+- Wazuh needs API access to query MISP for threat intelligence enrichment
+- Automated IoC lookups require valid authentication keys to function
+- Real-time threat correlation depends on seamless API connectivity
+
+**Operational Efficiency**
+Without functional authentication keys:
+
+- Manual processes replace automation - you'd have to manually export/import threat data
+- Feed synchronization fails - missing updates from threat intelligence sources
+- Integration bottlenecks - other security tools can't automatically consume MISP data
+
+**Redis Dependency**
+Authentication keys specifically require Redis because:
+
+- Session management for API requests uses Redis caching
+- Rate limiting and API quotas are tracked in Redis
+- Key validation and expiry tracking rely on Redis storage
+
+---
+
+## Troubleshooting: Feed Processing Internal Error
+
+**Issue encountered:**  
+MISP feed enable/fetch operations showing internal system error after implementing authentication keys Redis fix.
+
+**Error symptoms:**
+- [ ] Internal server error when enabling feeds
+- [ ] Feed fetching fails with system error
+- [ ] Background job processing errors
+- [ ] Feed synchronization not working
+
+**Root cause identified:**  
+MISP uses separate Redis configurations for general operations vs background jobs. Fixing authentication keys only configured general Redis settings, leaving background job Redis unconfigured.
+
+**What triggers this issue:**  
+Occurs after configuring general Redis settings (`MISP.redis_*`) but not configuring background job Redis settings (`SimpleBackgroundJobs.redis_*`). Feed processing requires background jobs to function.
+
+**Error log samples:**
+
+```bash
+# Background jobs Redis error
+[RuntimeException] Required option `redis_host` for BackgroundJobsTool is not set.
+Error in: /var/www/MISP/app/Lib/Tools/BackgroundJobsTool.php
+
+# Feed processing error
+Request URL: /feeds/fetchFromAllFeeds
+Error: BackgroundJobsTool->createRedisConnection()
+FeedsController->fetchFromAllFeeds()
+```
+
+**Where this occurs in the system:**  
+Feed processing, background job execution, and automated synchronization tasks all depend on SimpleBackgroundJobs Redis connectivity.
+
+---
+
+## Solution Steps
+
+**Did you verify which Redis settings were missing?**
+- [x] Yes
+- [ ] No
+
+**Check existing background job settings:**
+
+```bash
+# List all background job related settings
+docker exec misp-docker-misp-core-1 /var/www/MISP/app/Console/cake admin getSetting | grep -i background
+
+# Identify SimpleBackgroundJobs settings
+docker exec misp-docker-misp-core-1 /var/www/MISP/app/Console/cake admin getSetting | grep SimpleBackgroundJobs
+```
+
+**Step 1: Configure SimpleBackgroundJobs Redis settings**
+
+```bash
+# Set the correct background jobs Redis configuration
+docker exec misp-docker-misp-core-1 /var/www/MISP/app/Console/cake admin setSetting SimpleBackgroundJobs.redis_host redis
+docker exec misp-docker-misp-core-1 /var/www/MISP/app/Console/cake admin setSetting SimpleBackgroundJobs.redis_password redispassword
+docker exec misp-docker-misp-core-1 /var/www/MISP/app/Console/cake admin setSetting SimpleBackgroundJobs.redis_port 6379
+docker exec misp-docker-misp-core-1 /var/www/MISP/app/Console/cake admin setSetting SimpleBackgroundJobs.redis_database 1
+```
+
+**Step 2: Enable background jobs system**
+
+```bash
+# Enable SimpleBackgroundJobs functionality
+docker exec misp-docker-misp-core-1 /var/www/MISP/app/Console/cake admin setSetting SimpleBackgroundJobs.enabled true
+```
+
+**Step 3: Verify configuration**
+
+```bash
+# Check that SimpleBackgroundJobs settings are properly saved
+docker exec misp-docker-misp-core-1 /var/www/MISP/app/Console/cake admin getSetting SimpleBackgroundJobs.redis_host
+docker exec misp-docker-misp-core-1 /var/www/MISP/app/Console/cake admin getSetting SimpleBackgroundJobs.enabled
+```
+
+**Step 4: Restart and test**
+
+```bash
+# Restart MISP to apply background job changes
+docker restart misp-docker-misp-core-1
+
+# Wait for startup
+sleep 30
+```
+
+**Expected output after fix:**
+
+```json
+{
+    "value": "redis",
+    "errorMessage": null,
+    "setting": "SimpleBackgroundJobs.redis_host"
+}
+```
+
+**Final verification:**  
+Feed enable/fetch operations should work without internal errors. Background jobs should process successfully.
+
+---
+
+## MISP Redis Configuration Architecture
+
+**Understanding MISP's dual Redis setup:**
+
+MISP uses **two separate Redis configurations** that must both be configured:
+
+1. **General Redis (`MISP.redis_*`)**
+   - Authentication keys
+   - Session management  
+   - General caching
+   - User interface operations
+
+2. **Background Jobs Redis (`SimpleBackgroundJobs.redis_*`)**
+   - Feed processing
+   - Background synchronization
+   - Automated tasks
+   - Job queue management
+
+**Required settings for full functionality:**
+
+```bash
+# General Redis settings
+MISP.redis_host=redis
+MISP.redis_password=redispassword
+MISP.redis_port=6379
+MISP.redis_database=13
+
+# Background Jobs Redis settings  
+SimpleBackgroundJobs.redis_host=redis
+SimpleBackgroundJobs.redis_password=redispassword
+SimpleBackgroundJobs.redis_port=6379
+SimpleBackgroundJobs.redis_database=1
+SimpleBackgroundJobs.enabled=true
+```
+
+---
+
+## Reflection & Learning
+
+**What did you learn while troubleshooting this feed processing issue?**
+
+> MISP's architecture separates general operations from background processing, requiring independent Redis configuration for each subsystem. A single Redis instance can serve both purposes using different database numbers, but each system must be explicitly configured even when pointing to the same Redis server.
+
+**Key insight discovered:**
+
+> The error message "BackgroundJobsTool" clearly indicated which subsystem was failing, leading to the discovery of SimpleBackgroundJobs as a separate configuration namespace from general MISP Redis settings.
+
+**Anything you would do differently or improve in the future?**
+
+> Configure both Redis subsystems simultaneously during initial setup rather than addressing them as separate issues. Create a comprehensive Redis configuration checklist covering both general operations and background jobs.
+
+**Prevention for future deployments:**
+
+```bash
+# Complete Redis configuration verification script
+echo "Checking General Redis..."
+docker exec misp-docker-misp-core-1 /var/www/MISP/app/Console/cake admin getSetting MISP.redis_host
+
+echo "Checking Background Jobs Redis..."
+docker exec misp-docker-misp-core-1 /var/www/MISP/app/Console/cake admin getSetting SimpleBackgroundJobs.redis_host
+
+echo "Verifying Background Jobs enabled..."
+docker exec misp-docker-misp-core-1 /var/www/MISP/app/Console/cake admin getSetting SimpleBackgroundJobs.enabled
+```
+
+**Dependencies identified:**
+
+> Feed functionality depends on: Authentication Keys → General Redis → Background Jobs Redis → SimpleBackgroundJobs.enabled. All components must be functional for complete feed processing capability.
+
+---
+
+## Automated Daily Feed Synchronization
+
+**Purpose:**  
+Set up automated daily fetching of threat intelligence feeds to keep your MISP instance current with the latest IoCs and threat data without manual intervention.
+
+**Prerequisites:**
+- [ ] MISP instance running and accessible
+- [ ] Feeds configured and enabled in MISP
+- [ ] Authentication keys working properly
+- [ ] Background jobs Redis configured
+- [ ] System with cron access (Docker host machine)
+
+---
+
+## Step 1: Generate MISP API Key
+
+**Access API key management:**
+1. Log into your MISP instance at `https://localhost:444`
+2. Navigate to **Administration** → **List Auth Keys**
+3. Click **Add authentication key**
+4. Fill in the details:
+   - **Comment**: `Daily Feed Automation`
+   - **Allowed IPs**: Leave blank for any IP (or specify your server IP)
+5. Click **Submit**
+6. **Copy the generated API key** - you'll need this for the cron job
+
+**Alternative: Use existing API key:**
+- If you already have an API key, you can view it by clicking on your username → **My Profile** → **Auth Keys**
+
+---
+
+## Step 2: Test the API Call
+
+**From your misp-docker directory, test the API:**
+
+```bash
+# Navigate to misp-docker directory
+cd /path/to/misp-docker
+
+# Test the feed fetch API call
+/usr/bin/curl -XPOST --insecure --header "Authorization: YOUR_API_KEY" --header "Accept: application/json" --header "Content-Type: application/json" https://YOUR_MISP_ADDRESS/feeds/fetchFromAllFeeds
+```
+
+**Expected response:**
+```json
+{
+    "result": "Pull queued for background execution."
+}
+```
+
+**If authentication fails:**
+- Verify API key is correct
+- Ensure API key user has proper permissions
+- Check that feeds are enabled in MISP interface
+
+---
+
+## Step 3: Configure the Cron Job
+
+**Add automated daily sync:**
+
+```bash
+# Edit the system crontab
+sudo crontab -e
+
+# Add the following line (runs daily at 1:00 AM)
+# Sync MISP feed daily
+0 1 * * * /usr/bin/curl -XPOST --insecure --header "Authorization: YOUR_API_KEY" --header "Accept: application/json" --header "Content-Type: application/json" https://YOUR_MISP_ADDRESS/feeds/fetchFromAllFeeds
+```
+
+**Replace placeholders:**
+- `YOUR_API_KEY` - Your actual MISP API key
+- `YOUR_MISP_ADDRESS` - Your MISP URL (e.g., `localhost:444`)
+
+**Cron schedule options:**
+- `0 1 * * *` - Daily at 1:00 AM
+- `0 */6 * * *` - Every 6 hours
+- `0 2,14 * * *` - Twice daily (2:00 AM and 2:00 PM)
+- `0 1 * * 0` - Weekly on Sunday at 1:00 AM
+
+---
+
+## Troubleshooting
+
+**Common issues and solutions:**
+
+**Issue: API authentication fails**
+```bash
+# Verify API key is correct
+curl -H "Authorization: YOUR_API_KEY" https://localhost:444/users/view/me.json
+```
+
+**Issue: Feeds not updating**
+- Check that feeds are enabled in MISP interface
+- Verify background jobs are running: `docker ps | grep misp-core`
+- Check SimpleBackgroundJobs Redis configuration
+
+**Issue: SSL certificate errors**
+- Using `--insecure` flag bypasses SSL verification
+- For production, replace with proper SSL certificates
+
+**Issue: Cron job not running**
+```bash
+# Check cron service status
+sudo systemctl status cron
+
+# Check cron logs
+sudo journalctl -u cron -f
+```
+
+**Security considerations:**
+- **API key protection**: Keep your API key secure and don't commit it to version control
+- **Network security**: Consider IP restrictions for API keys in production environments
+- **Regular maintenance**: Verify the cron job continues working after MISP updates
+
+This simple automation ensures your MISP threat intelligence feeds stay current without manual intervention, supporting your SOC operations with up-to-date IoC data for Wazuh integration.
+
+---
 
 ## How to implement with Wazuh 
 
