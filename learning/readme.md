@@ -548,7 +548,7 @@ Set up automated daily fetching of threat intelligence feeds to keep your MISP i
 ## Step 1: Generate MISP API Key
 
 **Access API key management:**
-1. Log into your MISP instance at `https://localhost:444`
+1. Log into MISP instance, mine is `https://localhost:444`
 2. Navigate to **Administration** → **List Auth Keys**
 3. Click **Add authentication key**
 4. Fill in the details:
@@ -611,6 +611,8 @@ sudo crontab -e
 - `0 2,14 * * *` - Twice daily (2:00 AM and 2:00 PM)
 - `0 1 * * 0` - Weekly on Sunday at 1:00 AM
 
+![CronJob](img/MISP_CronJob_Task.png)
+
 ---
 
 ## Troubleshooting
@@ -640,6 +642,8 @@ sudo systemctl status cron
 # Check cron logs
 sudo journalctl -u cron -f
 ```
+
+![Cronjob Status](img/MISP_CronJob_Status.png)
 
 **Security considerations:**
 - **API key protection**: Keep your API key secure and don't commit it to version control
