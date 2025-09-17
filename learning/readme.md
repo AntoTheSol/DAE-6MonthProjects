@@ -12,20 +12,18 @@ When MISP is paired with Wazuh it will enrich the logs we are already receiving 
 
 #### 1. Enhanced Alert Quality & Context
 - **Automated IOC enrichment** - Alerts come pre-loaded with threat context instead of requiring manual lookups
+- **Automated IoC Check** - No manual copy/paste of IOCs for lookups
 
 #### 2. Faster Incident Response
 - **Pre-built threat profiles** - Instant access to known TTPs for faster analysis
 
-#### 3. Workflow Efficiency
-- **Automated enrichment** - No manual copy/paste of IOCs for lookups
-
-#### 4. Detection Coverage
+#### 3. Detection Coverage
 - **Community intelligence** - Benefit from threat sharing with other organizations
 
-#### 5. Operational Benefits
+#### 4. Operational Benefits
 - **Reduced alert fatigue** - Better quality alerts mean fewer unnecessary investigations
 
-#### 6. Investigation Support
+#### 5. Investigation Support
 - **Pivot capabilities** - Jump from one indicator to related threats quickly
 
 Overall it transforms reactive alert processing into proactive, intelligence-driven security operations.
@@ -654,6 +652,7 @@ This simple automation ensures your MISP threat intelligence feeds stay current 
 
 ---
 
-## How to implement with Wazuh 
+## 👤 Authored by: Gabriel Zepeda
 
-Wazuh -> GrayLog -> MISP -> GrayLog -> OpenSearch
+🗓️ Date: [2025-09-17]  
+🔁 Validated by: 
