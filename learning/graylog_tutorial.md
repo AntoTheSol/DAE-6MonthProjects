@@ -62,3 +62,55 @@ GRAYLOG_SERVER_JAVA_OPTS="$GRAYLOG_SERVER_JAVA_OPTS -Dlog4j2.formatMsgNoLookups=
 ```
 
 ![/etc/default/graylog-server](img/graylog_server_java_options.png)
+
+
+Edit Configuration file
+
+```bash
+
+nano /etc/graylog/server/server.conf
+
+```
+
+Create a secret password within the configuration file
+
+```bash
+
+pwgen -N 1 -s 96
+
+```
+
+Within the configuration file we also create a sha256sum password with the following command below.
+
+```bash
+
+echo -n "Enter Password: " && head -1 </dev/stdin | tr -d '\n' | sha256sum | cut -d" " -f1
+
+```
+
+
+![Creating Wazuh User for Graylog](img/graylog_wazuh_user.png)
+
+When creating the user as shown in the picture above we take those credentials we just made and replaced them in the configuration file for graylog. All we need to do is replace `user` and `pass` below. 
+
+```bash
+
+elasticsearch_hosts = https://user:pass@wazuh-indexerhostname:9200
+
+```
+
+
+Now we start gray log
+
+```bash
+
+sudo systemctl daemon-reload
+sudo systemctl enable graylog-server.service
+sudo systemctl start graylog-server.service
+sudo systemctl --type=service --state=active | grep graylog 
+
+
+```
+
+
+using `nano /etc/graylog/server/server.conf` might be a good idea to change the `http_bind_address` from `127.0.0.1:9000` to `0.0.0.0:9000`. This will allow any interface to connect to it.
