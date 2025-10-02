@@ -1480,6 +1480,1697 @@ graph TD
     - [ ] **3.6b** Development methodology  
     - [ ] **3.6c** Implementation approach  
 
+
+---
+
+## 3.1 Document strategy for integrating SIEM, EDR, and threat intelligence platforms
+
+**Integration Strategy Overview:**
+
+The integration strategy centers on creating a unified security operations platform using Wazuh as the central SIEM, MISP as the threat intelligence hub, and OpenCTI for advanced threat analysis, all deployed using Docker for consistency and portability.
+
+**Core Integration Principles:**
+
+```mermaid
+graph TB
+    subgraph "Collection Layer"
+        A[Wazuh Agents - EDR] --> B[Wazuh Manager - SIEM]
+        C[Zeek - Network Sensors] --> B
+        D[Cloud Services] --> B
+    end
+    
+    subgraph "Intelligence Layer"
+        B --> E[MISP Platform]
+        E --> F[OpenCTI]
+        F --> B
+    end
+    
+    subgraph "Analysis Layer"
+        B --> G[Wazuh Indexer]
+        G --> H[Wazuh Dashboard]
+        H --> I[SOC Analysts]
+    end
+    
+    subgraph "Response Layer"
+        I --> J[Active Response]
+        J --> K[Endpoint Isolation]
+        J --> L[IP Blocking]
+        J --> M[MISP Sighting]
+    end
+```
+
+**Three-Tier Integration Model:**
+
+**Tier 1: Real-time Detection Integration**
+- **Wazuh ↔ MISP IOC Matching**: Automatic cross-referencing of observed indicators
+- **Zeek ↔ Wazuh Log Forwarding**: Network traffic analysis integrated with SIEM
+- **Active Response Triggers**: Automated containment based on MISP threat levels
+
+**Tier 2: Enrichment Integration**
+- **MISP Event Context**: Attribution, campaign information, related IOCs
+- **OpenCTI Knowledge Graphs**: Threat actor relationships and TTPs
+- **GeoIP/WHOIS Data**: Network intelligence enrichment
+
+**Tier 3: Intelligence Sharing**
+- **Bidirectional MISP Sync**: Internal IOCs pushed to MISP for community sharing
+- **STIX/TAXII Feeds**: Standards-based threat intelligence exchange
+- **Automated Feed Updates**: Daily synchronization with external threat feeds
+
+**Docker-Based Deployment Strategy:**
+
+Based on your existing Docker infrastructure, the integration uses containerized services for easy management:
+
+```yaml
+# Integration Stack Overview
+services:
+  wazuh-manager:
+    - Receives logs from all agents
+    - Executes detection rules
+    - Queries MISP for IOC enrichment
+    
+  misp-platform:
+    - Stores and manages IOCs
+    - Provides API for Wazuh integration
+    - Syncs with external feeds
+    
+  wazuh-indexer:
+    - Stores enriched events
+    - Provides search capabilities
+    - Supports long-term analysis
+```
+
+**Integration Architecture Decisions:**
+
+| Integration Point | Technology Choice | Rationale |
+|------------------|-------------------|-----------|
+| **SIEM Core** | Wazuh | Open-source, comprehensive EDR capabilities, active response |
+| **Threat Intelligence** | MISP | Community-driven, API-first, extensive feed support |
+| **Data Store** | Wazuh Indexer (OpenSearch) | Native integration, high performance, retention management |
+| **Network Analysis** | Zeek | Deep packet inspection, custom detection scripts |
+| **Container Platform** | Docker/Docker Compose | Your existing infrastructure, easy deployment |
+| **API Integration** | RESTful APIs + Python | Maximum flexibility, extensive library support |
+
+**Integration Workflows:**
+
+**Alert Enrichment Workflow:**
+```python
+# Wazuh Custom Integration Script
+import requests
+from pymisp import PyMISP
+
+class AlertEnrichment:
+    def __init__(self, misp_url, misp_key):
+        self.misp = PyMISP(misp_url, misp_key, ssl=False)
+    
+    def enrich_wazuh_alert(self, alert_data):
+        # Extract IOCs from Wazuh alert
+        src_ip = alert_data.get('data', {}).get('srcip')
+        dst_ip = alert_data.get('data', {}).get('dstip')
+        
+        enrichment = {
+            'misp_context': {},
+            'threat_level': 'unknown',
+            'attribution': 'none'
+        }
+        
+        # Query MISP for source IP
+        if src_ip:
+            misp_results = self.misp.search(
+                controller='attributes',
+                value=src_ip,
+                return_format='json'
+            )
+            
+            if misp_results:
+                enrichment['misp_context']['src_ip'] = {
+                    'known_malicious': True,
+                    'events': len(misp_results),
+                    'threat_types': self.extract_threat_types(misp_results),
+                    'first_seen': self.get_first_seen(misp_results)
+                }
+                enrichment['threat_level'] = 'high'
+        
+        # Query MISP for destination IP
+        if dst_ip:
+            misp_results = self.misp.search(
+                controller='attributes',
+                value=dst_ip,
+                return_format='json'
+            )
+            
+            if misp_results:
+                enrichment['misp_context']['dst_ip'] = {
+                    'known_malicious': True,
+                    'c2_server': self.is_c2_server(misp_results),
+                    'associated_malware': self.extract_malware(misp_results)
+                }
+        
+        return enrichment
+```
+
+**Automated IOC Synchronization:**
+
+From your past MISP automation work, the integration includes automated feed updates:
+
+```bash
+# Automated MISP Feed Sync (from your cron job)
+# Runs daily at 2 AM to update threat intelligence
+0 2 * * * curl -XPOST --insecure -H "Authorization: YOUR-API-KEY" \
+  -H "Accept: application/json" -H "Content-Type: application/json" \
+  https://localhost:444/feeds/fetchFromAllFeeds
+```
+
+---
+
+## 3.2 Provide integration architecture diagram
+
+**Comprehensive Integration Architecture:**
+
+```mermaid
+graph TB
+    subgraph "Data Sources"
+        A1[Windows Endpoints] --> A2[Wazuh Agent]
+        B1[Linux Servers] --> B2[Wazuh Agent]
+        C1[Network Traffic] --> C2[Zeek Sensor]
+        D1[Cloud Services] --> D2[API Collectors]
+    end
+    
+    subgraph "Collection & Normalization"
+        A2 --> E[Wazuh Manager<br/>Port 1514/TCP]
+        B2 --> E
+        C2 --> E
+        D2 --> E
+        E --> F[Event Normalization<br/>JSON Format]
+    end
+    
+    subgraph "Intelligence Integration"
+        F --> G{Threat Intel<br/>Lookup}
+        G --> H[MISP Platform<br/>Port 444/HTTPS]
+        H --> I[IOC Database]
+        G --> J[OpenCTI<br/>Port 8080]
+        J --> K[STIX Data]
+        H -.Enrichment Data.-> G
+        J -.Enrichment Data.-> G
+    end
+    
+    subgraph "Analysis & Storage"
+        G --> L[Wazuh Indexer<br/>Port 9200]
+        L --> M[Hot Storage<br/>7 days]
+        L --> N[Warm Storage<br/>90 days]
+        L --> O[Cold Storage<br/>1 year]
+    end
+    
+    subgraph "Detection & Response"
+        L --> P[Rules Engine]
+        P --> Q{Alert Severity}
+        Q -->|Critical| R[Automated Response]
+        Q -->|High| S[SOC Investigation]
+        Q -->|Medium/Low| T[Dashboard Alert]
+        R --> U[Active Response Scripts]
+    end
+    
+    subgraph "Presentation"
+        L --> V[Wazuh Dashboard<br/>Port 443]
+        V --> W[SOC Analysts]
+        V --> X[Executives]
+        V --> Y[Compliance Officers]
+    end
+    
+    subgraph "Feedback Loop"
+        W --> Z[Create MISP Event]
+        Z --> H
+        S --> Z
+    end
+    
+    style E fill:#FF6B6B
+    style H fill:#4ECDC4
+    style L fill:#95E1D3
+    style V fill:#F38181
+```
+
+**3.2a Data Flows:**
+
+**Primary Data Flow:**
+```
+Endpoints/Network → Wazuh Manager → Normalization → MISP Enrichment → 
+Indexer → Rules Engine → Dashboard → SOC Response
+```
+
+**Threat Intelligence Flow:**
+```
+External Feeds → MISP → Daily Sync → IOC Database → 
+Real-time Queries ← Wazuh Rules Engine
+```
+
+**Response Flow:**
+```
+Critical Alert → Active Response Script → Endpoint/Firewall Action → 
+Verification → MISP Sighting Creation
+```
+
+**3.2b API Connections:**
+
+| Source | Destination | Protocol | Purpose | Authentication |
+|--------|-------------|----------|---------|----------------|
+| Wazuh Manager | MISP | HTTPS REST | IOC enrichment | API Key |
+| MISP | OpenCTI | HTTPS REST | STIX data exchange | Bearer Token |
+| Wazuh Manager | Wazuh Indexer | HTTPS | Event storage | TLS Certificate |
+| Wazuh Dashboard | Wazuh Indexer | HTTPS | Data queries | TLS Certificate |
+| Active Response | MISP | HTTPS REST | Sighting creation | API Key |
+| External Scripts | Wazuh API | HTTPS REST | Alert queries | JWT Token |
+
+**API Integration Code Examples:**
+
+```python
+# Wazuh-MISP API Integration
+class WazuhMISPIntegration:
+    def __init__(self, wazuh_api, misp_api):
+        self.wazuh = wazuh_api
+        self.misp = misp_api
+    
+    # Real-time IOC lookup
+    def check_ioc(self, indicator, indicator_type):
+        """Query MISP for IOC during alert processing"""
+        response = requests.get(
+            f"{self.misp.url}/attributes/restSearch",
+            headers={'Authorization': self.misp.api_key},
+            json={
+                'value': indicator,
+                'type': indicator_type,
+                'published': True
+            },
+            verify=False
+        )
+        return response.json()
+    
+    # Create MISP sighting from Wazuh alert
+    def create_sighting(self, alert_id, ioc_value):
+        """Report IOC observation back to MISP"""
+        wazuh_alert = self.wazuh.get_alert(alert_id)
+        
+        sighting_data = {
+            'value': ioc_value,
+            'source': 'Wazuh SIEM',
+            'type': '0',  # Sighting
+            'timestamp': wazuh_alert['timestamp'],
+            'org_name': 'GlobalTech SOC'
+        }
+        
+        return self.misp.add_sighting(sighting_data)
+```
+
+**3.2c Component Relationships:**
+
+```mermaid
+erDiagram
+    WAZUH-MANAGER ||--o{ WAZUH-AGENT : manages
+    WAZUH-MANAGER ||--|| WAZUH-INDEXER : stores-to
+    WAZUH-MANAGER ||--o{ MISP : queries
+    WAZUH-MANAGER ||--o{ ACTIVE-RESPONSE : triggers
+    MISP ||--o{ OPENCTI : syncs-with
+    MISP ||--o{ EXTERNAL-FEEDS : imports-from
+    WAZUH-INDEXER ||--|| WAZUH-DASHBOARD : serves
+    WAZUH-DASHBOARD ||--o{ SOC-ANALYST : accessed-by
+    ACTIVE-RESPONSE ||--o{ ENDPOINT : acts-on
+    SOC-ANALYST ||--o{ MISP : creates-events-in
+```
+
+**Network Placement Diagram:**
+
+```
+Internet
+    │
+    ▼
+[Firewall] ── Port 444 ──> MISP (Docker)
+    │
+    ├── Port 443 ──> Wazuh Dashboard (Docker)
+    │
+    ├── Port 1514 ──> Wazuh Manager (Docker)
+    │   │
+    │   ├─> Wazuh Agents (Windows/Linux)
+    │   ├─> Zeek Sensor Logs
+    │   └─> Cloud API Collectors
+    │
+    └── Port 9200 ──> Wazuh Indexer (Docker)
+                          │
+                          └─> Storage Volumes
+```
+
+---
+
+## 3.3 Explain authentication and data consistency requirements
+
+**Authentication Architecture:**
+
+**Multi-Layer Security Model:**
+
+```mermaid
+graph LR
+    A[User/System] --> B{Auth Layer}
+    B -->|API Key| C[MISP Access]
+    B -->|JWT Token| D[Wazuh API]
+    B -->|TLS Cert| E[Wazuh Indexer]
+    B -->|Username/Pass| F[Dashboard]
+    
+    C --> G[Role-Based Access]
+    D --> G
+    E --> G
+    F --> G
+```
+
+**Authentication Requirements by Component:**
+
+| Component | Auth Method | Credential Type | Rotation Policy | Use Case |
+|-----------|-------------|-----------------|-----------------|----------|
+| **MISP API** | API Key | Static key | 90 days | Wazuh integration scripts |
+| **Wazuh API** | JWT Token | Short-lived token | 15 minutes | External queries |
+| **Wazuh Indexer** | TLS Certificate | X.509 certificate | 365 days | Inter-component communication |
+| **Dashboard** | Username/Password + 2FA | User credentials | 60 days | SOC analyst access |
+| **Active Response** | API Key | Static key | 90 days | Automated response scripts |
+
+**Certificate Management:**
+
+From your Docker deployment, certificate management is centralized:
+
+```bash
+# Certificate structure (from your wazuh-docker setup)
+config/wazuh_indexer_ssl_certs/
+├── root-ca.pem          # Root CA certificate
+├── wazuh.indexer.pem    # Indexer certificate
+├── wazuh.indexer-key.pem # Indexer private key
+├── wazuh.manager.pem     # Manager certificate
+└── wazuh.manager-key.pem # Manager private key
+
+# Certificate installation for external tools (from your past work)
+sudo mkdir /etc/graylog/server/certs
+sudo cp root-ca.pem /etc/graylog/server/certs/rootCA.crt
+sudo keytool -importcert -keystore cacerts -alias root_ca -file rootCA.crt
+```
+
+**API Key Management Example:**
+
+```python
+# Secure API key storage and rotation
+import os
+from datetime import datetime, timedelta
+
+class APIKeyManager:
+    def __init__(self):
+        # Use environment variables, never hardcode
+        self.misp_key = os.getenv('MISP_API_KEY')
+        self.wazuh_user = os.getenv('WAZUH_API_USER')
+        self.wazuh_pass = os.getenv('WAZUH_API_PASS')
+    
+    def get_wazuh_token(self):
+        """Generate short-lived JWT token"""
+        response = requests.post(
+            f"{self.wazuh_api_url}/security/user/authenticate",
+            auth=(self.wazuh_user, self.wazuh_pass)
+        )
+        
+        token_data = response.json()
+        token_data['expires_at'] = datetime.now() + timedelta(minutes=15)
+        
+        return token_data['token']
+    
+    def check_key_expiration(self, key_created_date):
+        """Alert if API key approaching expiration"""
+        days_old = (datetime.now() - key_created_date).days
+        
+        if days_old > 80:  # 10 days before 90-day expiration
+            return {'status': 'warning', 'message': 'API key expires soon'}
+        
+        return {'status': 'ok'}
+```
+
+**Data Consistency Requirements:**
+
+**1. Event Timestamp Synchronization:**
+
+All components must use synchronized time to ensure accurate correlation:
+
+```xml
+<!-- Wazuh Manager NTP Configuration -->
+<ossec_config>
+  <global>
+    <time-synchronization>yes</time-synchronization>
+    <ntp_server>pool.ntp.org</ntp_server>
+  </global>
+</ossec_config>
+```
+
+**2. Data Format Standardization:**
+
+Events are normalized to consistent JSON schema before storage:
+
+```json
+{
+  "timestamp": "2025-10-02T14:30:15.123Z",
+  "agent": {
+    "id": "001",
+    "name": "server-prod-01",
+    "ip": "192.168.1.100"
+  },
+  "rule": {
+    "id": 200301,
+    "level": 8,
+    "description": "Lateral movement detected"
+  },
+  "data": {
+    "srcip": "192.168.1.100",
+    "srcuser": "jsmith",
+    "dsthost": "server-prod-02",
+    "protocol": "ssh"
+  },
+  "misp_enrichment": {
+    "ioc_match": false,
+    "query_timestamp": "2025-10-02T14:30:15.250Z"
+  }
+}
+```
+
+**3. Index Consistency:**
+
+Wazuh Indexer settings ensure data consistency across cluster nodes:
+
+```yaml
+# Wazuh Indexer consistency settings
+index:
+  number_of_shards: 3
+  number_of_replicas: 1
+  refresh_interval: "1s"
+  
+cluster:
+  name: wazuh-indexer-cluster
+  consistency: quorum  # Majority of nodes must acknowledge writes
+```
+
+**4. MISP Synchronization Consistency:**
+
+From your feed automation setup, consistency checks prevent stale IOCs:
+
+```bash
+# Feed sync verification (from your automation)
+# Check last successful sync
+curl -H "Authorization: ${MISP_API_KEY}" \
+  https://localhost:444/feeds/index | jq '.[] | {id, name, last_fetch}'
+
+# Verify IOC count after sync
+curl -H "Authorization: ${MISP_API_KEY}" \
+  https://localhost:444/attributes/restSearch | jq '. | length'
+```
+
+**Data Consistency Validation:**
+
+```python
+class DataConsistencyValidator:
+    def validate_alert_chain(self, alert_id):
+        """Verify data consistency across integration points"""
+        
+        # 1. Get original alert from Wazuh
+        wazuh_alert = self.wazuh_api.get_alert(alert_id)
+        
+        # 2. Verify alert exists in Indexer
+        indexer_query = {
+            'query': {'match': {'rule.id': wazuh_alert['rule']['id']}}
+        }
+        indexer_results = self.indexer.search(query=indexer_query)
+        
+        # 3. If IOC enrichment occurred, verify MISP data
+        if wazuh_alert.get('misp_enrichment'):
+            ioc_value = wazuh_alert['data']['srcip']
+            misp_result = self.misp.search(value=ioc_value)
+            
+            if not misp_result:
+                return {
+                    'consistent': False,
+                    'error': 'IOC referenced but not found in MISP'
+                }
+        
+        # 4. Verify timestamps are within acceptable range
+        time_diff = abs(
+            wazuh_alert['timestamp'] - indexer_results['timestamp']
+        )
+        
+        if time_diff > 5:  # More than 5 seconds difference
+            return {
+                'consistent': False,
+                'error': 'Timestamp synchronization issue'
+            }
+        
+        return {'consistent': True}
+```
+
+**Access Control Matrix:**
+
+| Role | Wazuh Dashboard | Wazuh API | MISP Read | MISP Write | Active Response |
+|------|----------------|-----------|-----------|------------|-----------------|
+| **SOC Analyst** | Read/Write | Read | Read | Read | No |
+| **SOC Lead** | Read/Write | Read/Write | Read | Write | Yes |
+| **Security Engineer** | Read/Write | Read/Write | Read/Write | Write | Yes |
+| **Automation Scripts** | No | Read | Read | Write (sightings) | Yes |
+| **Compliance Auditor** | Read Only | No | No | No | No |
+
+---
+
+## 3.4 Demonstrate traffic analysis with Wireshark/tcpdump
+
+**Traffic Analysis Tool Installation:**
+
+**Wireshark Installation and Configuration:**
+
+```bash
+# Install Wireshark on Ubuntu (WSL)
+sudo apt update
+sudo apt install wireshark tshark
+
+# Add user to wireshark group for packet capture
+sudo usermod -aG wireshark $USER
+
+# Install tcpdump
+sudo apt install tcpdump
+
+# Verify installation
+wireshark --version
+tcpdump --version
+```
+
+![Wireshark_Installation](img/wireshark_install.png)
+*Wireshark installation on WSL Ubuntu*
+
+**Packet Capture Configuration:**
+
+**1. Basic Packet Capture:**
+
+```bash
+# Capture traffic on specific interface
+sudo tcpdump -i eth0 -w capture.pcap
+
+# Capture only traffic to/from Wazuh Manager (port 1514)
+sudo tcpdump -i eth0 port 1514 -w wazuh_traffic.pcap
+
+# Capture HTTPS traffic to MISP (port 444)
+sudo tcpdump -i eth0 port 444 -w misp_traffic.pcap
+```
+
+![tcpdump_capture](img/tcpdump_wazuh_capture.png)
+*Capturing Wazuh agent communication with tcpdump*
+
+**2. Analyzing Wazuh Agent-Manager Communication:**
+
+```bash
+# Capture and display Wazuh agent traffic
+sudo tcpdump -i eth0 -nn port 1514 -A
+
+# Expected output:
+# 14:30:15.123456 IP 192.168.1.100.49152 > 192.168.1.1.1514: Flags [P.]
+# {"timestamp":"2025-10-02T14:30:15.123Z","agent":{"id":"001"}}
+```
+
+**Wireshark Display Filters for Security Monitoring:**
+
+```
+# Filter Wazuh traffic
+tcp.port == 1514
+
+# Filter MISP API calls
+tcp.port == 444 && http.request
+
+# Filter suspicious DNS (potential tunneling)
+dns.qry.name.len > 50
+
+# Filter SSH brute force attempts
+tcp.port == 22 && tcp.flags.syn == 1
+```
+
+![Wireshark_Wazuh_Filter](img/wireshark_wazuh_filter.png)
+*Wireshark filtering Wazuh manager traffic*
+
+**3. Network Traffic Analysis for Integration Verification:**
+
+```bash
+# Verify Wazuh agent connectivity
+sudo tcpdump -i eth0 src 192.168.1.100 and dst port 1514 -c 10
+
+# Monitor MISP API calls from Wazuh
+sudo tcpdump -i eth0 dst port 444 and 'tcp[((tcp[12:1] & 0xf0) >> 2):4] = 0x504f5354' -A
+
+# Capture and analyze with Wireshark
+sudo tcpdump -i eth0 -w integration_test.pcap
+wireshark integration_test.pcap &
+```
+
+**Traffic Analysis for Threat Detection:**
+
+**Example 1: Detecting Port Scanning:**
+
+```bash
+# Capture potential port scan
+sudo tcpdump -i eth0 'tcp[tcpflags] & (tcp-syn) != 0' -c 100 -w portscan.pcap
+
+# Analyze with tshark
+tshark -r portscan.pcap -T fields -e ip.src -e tcp.dstport | \
+  sort | uniq -c | sort -nr | head -10
+```
+
+Expected output showing port scanning behavior:
+```
+  45 192.168.1.150 22
+  45 192.168.1.150 80
+  45 192.168.1.150 443
+  45 192.168.1.150 8080
+  45 192.168.1.150 3306
+```
+
+![Port_Scan_Detection](img/tcpdump_portscan_detection.png)
+*Port scan detection via tcpdump analysis*
+
+**Example 2: Analyzing DNS Tunneling:**
+
+```bash
+# Capture DNS traffic
+sudo tcpdump -i eth0 port 53 -w dns_capture.pcap
+
+# Extract DNS queries with abnormal length
+tshark -r dns_capture.pcap -T fields -e dns.qry.name | \
+  awk 'length($0) > 50' > suspicious_dns.txt
+```
+
+**Example 3: HTTPS Certificate Analysis for MISP/Wazuh:**
+
+```bash
+# Capture TLS handshake for certificate inspection
+sudo tcpdump -i eth0 'tcp port 443 and (tcp[((tcp[12:1] & 0xf0) >> 2)] = 0x16)' \
+  -w tls_handshake.pcap
+
+# Analyze certificates with tshark
+tshark -r tls_handshake.pcap -Y "tls.handshake.type == 11" \
+  -T fields -e x509sat.uTF8String
+```
+
+![TLS_Certificate_Analysis](img/wireshark_tls_cert.png)
+*Wireshark analysis of TLS certificates between integrated components*
+
+**Integration Traffic Verification Checklist:**
+
+| Traffic Type | Expected Pattern | Verification Command | Health Indicator |
+|-------------|------------------|---------------------|------------------|
+| **Wazuh Agent → Manager** | Regular heartbeat every 60s | `tcpdump port 1514` | Continuous JSON messages |
+| **Wazuh → MISP** | API calls during alert enrichment | `tcpdump port 444 and host misp` | POST requests to /attributes/restSearch |
+| **Wazuh → Indexer** | Bulk event indexing | `tcpdump port 9200` | POST requests to /_bulk endpoint |
+| **Dashboard → Indexer** | Query traffic | `tcpdump port 9200` | GET requests with search queries |
+
+**Automated Traffic Analysis Script:**
+
+```python
+#!/usr/bin/env python3
+# analyze_integration_traffic.py
+import pyshark
+import json
+
+def analyze_wazuh_traffic(pcap_file):
+    """Analyze Wazuh agent communication"""
+    capture = pyshark.FileCapture(pcap_file, display_filter='tcp.port==1514')
+    
+    stats = {
+        'total_packets': 0,
+        'agents': set(),
+        'event_types': {},
+        'errors': []
+    }
+    
+    for packet in capture:
+        stats['total_packets'] += 1
+        
+        try:
+            # Extract agent IP
+            stats['agents'].add(packet.ip.src)
+            
+            # Parse JSON payload if present
+            if hasattr(packet, 'data'):
+                try:
+                    payload = json.loads(packet.data.data)
+                    event_type = payload.get('rule', {}).get('id', 'unknown')
+                    stats['event_types'][event_type] = \
+                        stats['event_types'].get(event_type, 0) + 1
+                except:
+                    pass
+        except Exception as e:
+            stats['errors'].append(str(e))
+    
+    return stats
+
+# Usage
+results = analyze_wazuh_traffic('wazuh_traffic.pcap')
+print(json.dumps({
+    'total_packets': results['total_packets'],
+    'active_agents': len(results['agents']),
+    'event_distribution': results['event_types']
+}, indent=2))
+```
+
+---
+
+## 3.5 Address cross-platform correlation challenges
+
+**Cross-Platform Correlation Architecture:**
+
+The integration handles data from multiple platforms (Windows, Linux, Cloud, Network), each with different log formats and semantics.
+
+**3.5a Data Normalization:**
+
+**Challenge:** Different platforms generate logs in various formats:
+- Windows: Event Log XML
+- Linux: Syslog
+- Zeek: JSON with custom fields
+- AWS: CloudTrail JSON
+- Firewall: CEF format
+
+**Solution - Unified Wazuh Event Schema:**
+
+```python
+# Data normalization engine
+class EventNormalizer:
+    def normalize_event(self, raw_event, source_type):
+        """Normalize different log formats to unified schema"""
+        
+        normalized = {
+            'timestamp': None,
+            'source': {'type': source_type, 'host': None},
+            'user': {'name': None, 'id': None},
+            'process': {'name': None, 'pid': None},
+            'network': {'srcip': None, 'dstip': None, 'protocol': None},
+            'file': {'path': None, 'hash': None},
+            'action': None,
+            'result': None
+        }
+        
+        if source_type == 'windows_eventlog':
+            normalized.update(self._normalize_windows(raw_event))
+        elif source_type == 'linux_syslog':
+            normalized.update(self._normalize_linux(raw_event))
+        elif source_type == 'zeek_conn':
+            normalized.update(self._normalize_zeek(raw_event))
+        elif source_type == 'aws_cloudtrail':
+            normalized.update(self._normalize_aws(raw_event))
+        
+        return normalized
+    
+    def _normalize_windows(self, event):
+        """Extract fields from Windows Event Log"""
+        return {
+            'timestamp': event['System']['TimeCreated']['@SystemTime'],
+            'source': {
+                'type': 'windows',
+                'host': event['System']['Computer']
+            },
+            'user': {
+                'name': event['EventData']['TargetUserName'],
+                'id': event['EventData']['TargetUserSid']
+            },
+            'action': event['System']['EventID'],
+            'result': 'success' if event['System']['EventID'] == '4624' else 'failure'
+        }
+    
+    def _normalize_linux(self, event):
+        """Extract fields from Linux syslog"""
+        return {
+            'timestamp': event['timestamp'],
+            'source': {
+                'type': 'linux',
+                'host': event['hostname']
+            },
+            'user': {
+                'name': event.get('user'),
+                'id': event.get('uid')
+            },
+            'process': {
+                'name': event.get('program'),
+                'pid': event.get('pid')
+            }
+        }
+    
+    def _normalize_zeek(self, event):
+        """Extract fields from Zeek connection logs"""
+        return {
+            'timestamp': event['ts'],
+            'source': {
+                'type': 'network',
+                'host': event.get('id.orig_h')
+            },
+            'network': {
+                'srcip': event['id.orig_h'],
+                'dstip': event['id.resp_h'],
+                'srcport': event['id.orig_p'],
+                'dstport': event['id.resp_p'],
+                'protocol': event['proto']
+            },
+            'action': 'connection',
+            'result': event.get('conn_state')
+        }
+```
+
+**Wazuh Decoder Configuration for Normalization:**
+
+```xml
+<!-- Custom decoder for non-standard logs -->
+<decoder name="custom-app-json">
+  <program_name>custom-app</program_name>
+  <plugin_decoder>JSON_Decoder</plugin_decoder>
+</decoder>
+
+<decoder name="custom-app-json">
+  <parent>custom-app-json</parent>
+  <json_decoder>user.name</json_decoder>
+  <field name="srcuser">$.user.name</field>
+</decoder>
+
+<decoder name="custom-app-json">
+  <parent>custom-app-json</parent>
+  <json_decoder>network.srcip</json_decoder>
+  <field name="srcip">$.network.srcip</field>
+</decoder>
+```
+
+**3.5b Entity Resolution:**
+
+**Challenge:** Same entity appears differently across platforms:
+- User: `DOMAIN\jsmith`, `jsmith@company.com`, `jsmith`, UID `1001`
+- Host: `SERVER01`, `server01.company.com`, `192.168.1.100`
+- Process: `C:\Windows\System32\cmd.exe`, `cmd.exe`, PID `1234`
+
+**Solution - Entity Resolution Service:**
+
+```python
+class EntityResolver:
+    def __init__(self, entity_db):
+        self.entity_db = entity_db  # Central entity database
+    
+    def resolve_user(self, raw_username, source_type):
+        """Resolve user identity across platforms"""
+        
+        # Normalize username format
+        username = self._normalize_username(raw_username, source_type)
+        
+        # Query entity database
+        canonical_user = self.entity_db.query({
+            'type': 'user',
+            'aliases': username
+        })
+        
+        if canonical_user:
+            return {
+                'canonical_id': canonical_user['id'],
+                'canonical_name': canonical_user['preferred_name'],
+                'email': canonical_user['email'],
+                'department': canonical_user['department'],
+                'risk_score': canonical_user['risk_score']
+            }
+        
+        # Create new entity if not found
+        return self._create_new_user_entity(username)
+    
+    def _normalize_username(self, username, source_type):
+        """Normalize username based on source"""
+        if source_type == 'windows':
+            # DOMAIN\username -> username
+            return username.split('\\')[-1].lower()
+        elif source_type == 'linux':
+            # Already lowercase, return as-is
+            return username.lower()
+        elif source_type == 'email':
+            # user@domain.com -> user
+            return username.split('@')[0].lower()
+        return username.lower()
+    
+    def resolve_host(self, raw_hostname, ip_address=None):
+        """Resolve host identity"""
+        
+        # Try DNS resolution
+        if ip_address:
+            resolved_hostname = self._reverse_dns_lookup(ip_address)
+        else:
+            resolved_hostname = raw_hostname
+        
+        # Normalize hostname
+        canonical_hostname = resolved_hostname.split('.')[0].upper()
+        
+        # Query asset database
+        asset = self.entity_db.query({
+            'type': 'host',
+            'hostname': canonical_hostname,
+            'ip': ip_address
+        })
+        
+        if asset:
+            return {
+                'canonical_id': asset['id'],
+                'hostname': asset['hostname'],
+                'ip_addresses': asset['ip_addresses'],
+                'asset_type': asset['type'],
+                'criticality': asset['criticality'],
+                'owner': asset['owner']
+            }
+        
+        return {'canonical_id': None, 'hostname': canonical_hostname}
+```
+
+**Entity Resolution Example in Wazuh:**
+
+```xml
+<!-- Wazuh rule using entity resolution -->
+<rule id="200400" level="8">
+  <if_sid>5715</if_sid>
+  <field name="normalized_user">jsmith</field>
+  <same_normalized_user />
+  <different_hostname />
+  <frequency>3</frequency>
+  <timeframe>300</timeframe>
+  <description>User $(normalized_user) accessing multiple hosts - potential lateral movement</description>
+  <mitre>
+    <id>T1021</id>
+  </mitre>
+</rule>
+```
+
+**3.5c Contextual Alignment:**
+
+**Challenge:** Understanding context requires knowledge of:
+- Business operations (normal vs abnormal)
+- Asset importance (critical server vs test system)
+- User behavior (admin vs standard user)
+- Threat landscape (current campaigns, TTPs)
+
+**Solution - Multi-Layer Context Engine:**
+
+```python
+class ContextEngine:
+    def __init__(self, asset_db, misp_client, behavioral_baselines):
+        self.asset_db = asset_db
+        self.misp = misp_client
+        self.baselines = behavioral_baselines
+    
+    def build_alert_context(self, alert):
+        """Enrich alert with comprehensive context"""
+        
+        context = {
+            'asset_context': {},
+            'user_context': {},
+            'threat_context': {},
+            'behavioral_context': {},
+            'business_context': {}
+        }
+        
+        # Asset context
+        if alert.get('agent'):
+            asset = self.asset_db.get_asset(alert['agent']['name'])
+            context['asset_context'] = {
+                'criticality': asset['criticality'],  # Critical/High/Medium/Low
+                'asset_type': asset['type'],  # Server/Workstation/Network Device
+                'business_function': asset['business_function'],
+                'compliance_scope': asset['compliance_scope'],  # PCI-DSS, HIPAA, etc.
+                'data_classification': asset['data_classification']
+            }
+        
+        # User context
+        if alert.get('data', {}).get('srcuser'):
+            user = self.entity_db.get_user(alert['data']['srcuser'])
+            context['user_context'] = {
+                'department': user['department'],
+                'is_privileged': user['is_admin'],
+                'risk_score': user['risk_score'],  # Based on past behavior
+                'normal_work_hours': user['work_schedule']
+            }
+        
+        # Threat intelligence context
+        if alert.get('data', {}).get('srcip'):
+            misp_results = self.misp.search(value=alert['data']['srcip'])
+            if misp_results:
+                context['threat_context'] = {
+                    'known_malicious': True,
+                    'threat_types': self._extract_threat_types(misp_results),
+                    'associated_campaigns': self._extract_campaigns(misp_results),
+                    'attribution': self._extract_attribution(misp_results),
+                    'first_seen': self._get_first_seen(misp_results),
+                    'confidence': self._calculate_confidence(misp_results)
+                }
+        
+        # Behavioral context
+        baseline = self.baselines.get_user_baseline(alert['data'].get('srcuser'))
+        context['behavioral_context'] = {
+            'deviation_score': self._calculate_deviation(alert, baseline),
+            'is_anomalous_time': self._check_time_anomaly(alert, baseline),
+            'is_anomalous_volume': self._check_volume_anomaly(alert, baseline),
+            'similar_past_events': baseline.get('similar_events', 0)
+        }
+        
+        # Business context
+        context['business_context'] = {
+            'is_business_hours': self._is_business_hours(alert['timestamp']),
+            'is_holiday': self._is_holiday(alert['timestamp']),
+            'is_maintenance_window': self._is_maintenance_window(
+                alert['agent']['name'],
+                alert['timestamp']
+            )
+        }
+        
+        return context
+    
+    def calculate_contextual_risk(self, alert, context):
+        """Calculate risk score based on all context"""
+        
+        base_risk = alert['rule']['level']
+        
+        # Asset criticality multiplier
+        criticality_multiplier = {
+            'Critical': 2.0,
+            'High': 1.5,
+            'Medium': 1.0,
+            'Low': 0.7
+        }
+        base_risk *= criticality_multiplier.get(
+            context['asset_context'].get('criticality', 'Medium')
+        )
+        
+        # Threat intelligence multiplier
+        if context['threat_context'].get('known_malicious'):
+            base_risk *= 1.8
+        
+        # Behavioral anomaly multiplier
+        if context['behavioral_context'].get('deviation_score', 0) > 0.7:
+            base_risk *= 1.5
+        
+        # Business context adjustment
+        if not context['business_context']['is_business_hours']:
+            base_risk *= 1.3  # After-hours activity is more suspicious
+        
+        if context['business_context']['is_maintenance_window']:
+            base_risk *= 0.5  # Maintenance window reduces suspicion
+        
+        return min(base_risk, 10.0)  # Cap at 10
+```
+
+**Contextual Correlation Example:**
+
+```mermaid
+graph TD
+    A[Raw Alert: SSH Login] --> B{Context Engine}
+    B --> C[Asset DB: Server Criticality = High]
+    B --> D[User DB: After-hours = Anomalous]
+    B --> E[MISP: Source IP = Known Scanner]
+    B --> F[Baseline: First time from this IP]
+    
+    C --> G[Context Enrichment]
+    D --> G
+    E --> G
+    F --> G
+    
+    G --> H[Risk Score: 9.5/10]
+    H --> I[High Priority Alert]
+    I --> J[Automated Response]
+    I --> K[SOC Investigation]
+```
+
+**Implementation in Wazuh Rules:**
+
+```xml
+<!-- Rule leveraging contextual data -->
+<rule id="200500" level="5">
+  <if_sid>5715</if_sid>
+  <description>SSH login detected</description>
+  <group>authentication</group>
+</rule>
+
+<!-- Contextual escalation based on asset criticality -->
+<rule id="200501" level="8">
+  <if_sid>200500</if_sid>
+  <field name="asset_criticality">Critical|High</field>
+  <description>SSH login to critical asset</description>
+</rule>
+
+<!-- Further escalation based on MISP IOC match -->
+<rule id="200502" level="12">
+  <if_sid>200501</if_sid>
+  <list field="srcip" lookup="misp_malicious_ips">misp_iocs</list>
+  <description>Critical: SSH login to critical asset from known malicious IP</description>
+  <group>misp_match,lateral_movement</group>
+</rule>
+```
+
+**Cross-Platform Correlation Dashboard:**
+
+```json
+{
+  "correlation_summary": {
+    "alert_id": "2025-10-02-12345",
+    "correlation_chain": [
+      {
+        "platform": "Windows",
+        "event": "Multiple failed logins",
+        "timestamp": "2025-10-02T14:28:00Z"
+      },
+      {
+        "platform": "Linux",
+        "event": "Successful SSH login",
+        "timestamp": "2025-10-02T14:30:15Z",
+        "correlation": "Same username after Windows failures"
+      },
+      {
+        "platform": "Zeek",
+        "event": "SMB traffic to file server",
+        "timestamp": "2025-10-02T14:31:45Z",
+        "correlation": "Same source IP as SSH login"
+      }
+    ],
+    "entity_resolution": {
+      "canonical_user": "jsmith",
+      "aliases": ["DOMAIN\\jsmith", "jsmith@company.com", "jsmith"],
+      "resolved_host": "SERVER01",
+      "host_aliases": ["server01", "192.168.1.100"]
+    },
+    "threat_intelligence": {
+      "misp_match": true,
+      "campaign": "APT29 Lateral Movement",
+      "confidence": 85
+    },
+    "contextual_risk": 9.2,
+    "recommended_action": "Immediate isolation and investigation"
+  }
+}
+```
+
+---
+
+## 3.6 Develop custom analytics plan for mock enterprise
+
+**Custom Analytics Framework for GlobalTech Corp:**
+
+**3.6a Use Case Definition:**
+
+| Use Case ID | Name | Business Driver | Security Objective | Data Sources |
+|------------|------|-----------------|-------------------|--------------|
+| **UC-001** | Insider Threat Detection | Protect intellectual property | Detect anomalous data access | Windows Event Logs, File Servers, DLP |
+| **UC-002** | Lateral Movement Detection | Prevent ransomware spread | Identify privilege escalation patterns | AD logs, SMB traffic, Wazuh agents |
+| **UC-003** | Cloud Account Compromise | Secure cloud infrastructure | Detect suspicious cloud API usage | AWS CloudTrail, Azure Activity Logs |
+| **UC-004** | Data Exfiltration | Compliance (PCI-DSS) | Identify large data transfers | Network traffic (Zeek), Proxy logs |
+| **UC-005** | Supply Chain Attack | Third-party risk management | Monitor vendor access patterns | VPN logs, Application logs |
+
+**Detailed Use Case: Insider Threat Detection (UC-001)**
+
+```python
+class InsiderThreatAnalytics:
+    """
+    Detect anomalous data access patterns indicative of insider threats
+    """
+    
+    def __init__(self, wazuh_api, misp_client):
+        self.wazuh = wazuh_api
+        self.misp = misp_client
+        self.risk_factors = []
+    
+    def analyze_user_file_access(self, username, timeframe='7d'):
+        """Detect unusual file access patterns"""
+        
+        # Collect file access events
+        query = f'data.dstuser:{username} AND rule.id:(550|553|554)'
+        events = self.wazuh.search(query=query, timeframe=timeframe)
+        
+        # Extract features
+        features = {
+            'unique_files_accessed': set(),
+            'sensitive_files': [],
+            'access_times': [],
+            'access_volumes': [],
+            'file_types': {}
+        }
+        
+        for event in events:
+            file_path = event['data'].get('file_path')
+            timestamp = event['timestamp']
+            
+            features['unique_files_accessed'].add(file_path)
+            features['access_times'].append(timestamp)
+            
+            # Check if sensitive file
+            if self._is_sensitive_file(file_path):
+                features['sensitive_files'].append(file_path)
+            
+            # Track file types
+            file_ext = file_path.split('.')[-1]
+            features['file_types'][file_ext] = \
+                features['file_types'].get(file_ext, 0) + 1
+        
+        # Calculate risk indicators
+        risk_score = 0
+        
+        # Risk Factor 1: High volume of unique files
+        if len(features['unique_files_accessed']) > 100:
+            risk_score += 3
+            self.risk_factors.append('High volume of unique file access')
+        
+        # Risk Factor 2: Sensitive file access
+        if len(features['sensitive_files']) > 5:
+            risk_score += 5
+            self.risk_factors.append('Multiple sensitive file access')
+        
+        # Risk Factor 3: After-hours access
+        after_hours_count = sum(
+            1 for t in features['access_times']
+            if self._is_after_hours(t)
+        )
+        if after_hours_count > 20:
+            risk_score += 4
+            self.risk_factors.append('Significant after-hours activity')
+        
+        # Risk Factor 4: Unusual file types
+        if 'zip' in features['file_types'] or 'rar' in features['file_types']:
+            risk_score += 3
+            self.risk_factors.append('Compression file creation')
+        
+        return {
+            'user': username,
+            'risk_score': risk_score,
+            'risk_level': self._categorize_risk(risk_score),
+            'risk_factors': self.risk_factors,
+            'features': {
+                'unique_files': len(features['unique_files_accessed']),
+                'sensitive_files': len(features['sensitive_files']),
+                'after_hours_events': after_hours_count
+            }
+        }
+    
+    def _is_sensitive_file(self, file_path):
+        """Determine if file contains sensitive data"""
+        sensitive_patterns = [
+            '/finance/', '/hr/', '/payroll/',
+            'confidential', 'secret', 'customer_data'
+        ]
+        return any(pattern in file_path.lower() 
+                  for pattern in sensitive_patterns)
+    
+    def _categorize_risk(self, score):
+        if score >= 10:
+            return 'Critical'
+        elif score >= 7:
+            return 'High'
+        elif score >= 4:
+            return 'Medium'
+        return 'Low'
+```
+
+**3.6b Development Methodology:**
+
+**Phase 1: Requirements Gathering (Weeks 1-2)**
+
+```yaml
+activities:
+  - stakeholder_interviews:
+      participants:
+        - CISO
+        - SOC Manager
+        - Compliance Officer
+        - Business Unit Leads
+      outcomes:
+        - Priority use cases identified
+        - Success criteria defined
+        - Resource requirements estimated
+        
+  - data_source_assessment:
+      inventory:
+        - Existing log sources
+        - Coverage gaps
+        - Data quality issues
+      outputs:
+        - Data source matrix
+        - Integration requirements
+        - Retention policies
+```
+
+**Phase 2: Analytics Development (Weeks 3-8)**
+
+```python
+# Development workflow for each use case
+
+class AnalyticsDevelopmentWorkflow:
+    def __init__(self, use_case):
+        self.use_case = use_case
+        self.stages = []
+    
+    def stage1_hypothesis_definition(self):
+        """Define detection hypothesis"""
+        hypothesis = {
+            'threat_scenario': self.use_case.description,
+            'indicators': [],  # Observable behaviors
+            'thresholds': {},  # Statistical thresholds
+            'false_positive_factors': []  # Known FP sources
+        }
+        
+        # Example for lateral movement:
+        if self.use_case.id == 'UC-002':
+            hypothesis['indicators'] = [
+                'Same user authenticating to multiple hosts',
+                'Privilege escalation after initial access',
+                'SMB traffic to file shares'
+            ]
+            hypothesis['thresholds'] = {
+                'unique_hosts': 3,
+                'timeframe': 300,  # 5 minutes
+                'privilege_actions': 1
+            }
+        
+        return hypothesis
+    
+    def stage2_data_collection(self):
+        """Collect historical data for testing"""
+        data_sources = {
+            'wazuh_events': self._collect_wazuh_events(),
+            'zeek_logs': self._collect_zeek_logs(),
+            'labeled_incidents': self._collect_past_incidents()
+        }
+        return data_sources
+    
+    def stage3_algorithm_development(self, data):
+        """Develop detection algorithm"""
+        # Implement detection logic
+        detector = LateralMovementDetector()
+        
+        # Train on historical data
+        detector.train(data['labeled_incidents'])
+        
+        # Validate accuracy
+        accuracy = detector.validate(data['wazuh_events'])
+        
+        return detector, accuracy
+    
+    def stage4_tuning(self, detector, validation_data):
+        """Tune thresholds to minimize false positives"""
+        best_params = self._grid_search_thresholds(
+            detector,
+            validation_data,
+            target_fpr=0.05  # 5% false positive rate
+        )
+        
+        detector.update_params(best_params)
+        return detector
+    
+    def stage5_integration(self, detector):
+        """Integrate with Wazuh"""
+        # Generate Wazuh rules
+        wazuh_rules = detector.to_wazuh_rules()
+        
+        # Deploy to test environment
+        self._deploy_to_test(wazuh_rules)
+        
+        # Monitor for 2 weeks
+        performance = self._monitor_performance(days=14)
+        
+        return performance
+```
+
+**Phase 3: Testing & Validation (Weeks 9-10)**
+
+```python
+class AnalyticsValidator:
+    def validate_use_case(self, use_case, detector):
+        """Comprehensive validation framework"""
+        
+        validation_results = {
+            'accuracy_metrics': {},
+            'performance_metrics': {},
+            'operational_metrics': {}
+        }
+        
+        # 1. Accuracy Testing
+        test_data = self._prepare_test_dataset()
+        validation_results['accuracy_metrics'] = {
+            'true_positive_rate': detector.calculate_tpr(test_data),
+            'false_positive_rate': detector.calculate_fpr(test_data),
+            'precision': detector.calculate_precision(test_data),
+            'recall': detector.calculate_recall(test_data),
+            'f1_score': detector.calculate_f1(test_data)
+        }
+        
+        # 2. Performance Testing
+        validation_results['performance_metrics'] = {
+            'avg_detection_time': self._measure_detection_time(detector),
+            'max_processing_latency': self._measure_latency(detector),
+            'resource_usage': self._measure_resources(detector)
+        }
+        
+        # 3. Operational Testing
+        validation_results['operational_metrics'] = {
+            'alert_volume': self._measure_alert_volume(detector, days=7),
+            'analyst_feedback': self._collect_analyst_feedback(),
+            'integration_stability': self._test_integration_stability()
+        }
+        
+        # Determine if use case passes validation
+        validation_results['passed'] = self._evaluate_criteria(
+            validation_results
+        )
+        
+        return validation_results
+    
+    def _evaluate_criteria(self, results):
+        """Check against success criteria"""
+        criteria = {
+            'min_precision': 0.80,  # 80% of alerts must be true positives
+            'max_fpr': 0.05,  # Less than 5% false positive rate
+            'max_detection_time': 300,  # Under 5 minutes
+            'max_alert_volume': 50  # Under 50 alerts per day per use case
+        }
+        
+        return (
+            results['accuracy_metrics']['precision'] >= criteria['min_precision'] and
+            results['accuracy_metrics']['false_positive_rate'] <= criteria['max_fpr'] and
+            results['performance_metrics']['avg_detection_time'] <= criteria['max_detection_time'] and
+            results['operational_metrics']['alert_volume'] <= criteria['max_alert_volume']
+        )
+```
+
+**3.6c Implementation Approach:**
+
+**Implementation Architecture:**
+
+```mermaid
+graph TB
+    subgraph "Development Environment"
+        A[Analytics Workstation] --> B[Test Wazuh Instance]
+        A --> C[Sample Data Lake]
+        B --> D[Test MISP Instance]
+    end
+    
+    subgraph "Staging Environment"
+        E[Staging Wazuh Cluster] --> F[Subset of Production Data]
+        E --> G[Staging MISP]
+        F --> H[Validation Dashboard]
+    end
+    
+    subgraph "Production Environment"
+        I[Production Wazuh Cluster] --> J[Full Production Data]
+        I --> K[Production MISP]
+        J --> L[SOC Dashboard]
+        L --> M[Alert Queue]
+    end
+    
+    B -->|Validated Rules| E
+    E -->|Approved Rules| I
+```
+
+**Deployment Pipeline:**
+
+```yaml
+# CI/CD pipeline for analytics deployment
+analytics_pipeline:
+  stage_1_development:
+    - write_detection_logic
+    - unit_tests
+    - code_review
+    
+  stage_2_validation:
+    - deploy_to_test_environment
+    - run_automated_tests:
+        - accuracy_tests
+        - performance_tests
+        - integration_tests
+    - manual_validation:
+        - soc_analyst_review
+        - false_positive_analysis
+    
+  stage_3_staging:
+    - deploy_to_staging:
+        duration: 2_weeks
+        monitoring: continuous
+    - collect_metrics:
+        - alert_volume
+        - detection_rate
+        - false_positive_rate
+    - stakeholder_approval_required: true
+    
+  stage_4_production:
+    - phased_rollout:
+        phase_1: 
+          duration: 1_week
+          coverage: 20%
+        phase_2:
+          duration: 1_week
+          coverage: 50%
+        phase_3:
+          duration: 1_week
+          coverage: 100%
+    - monitoring:
+        - real_time_performance
+        - analyst_feedback
+        - incident_correlation
+    
+  stage_5_optimization:
+    - continuous_tuning
+    - quarterly_review
+    - annual_revalidation
+```
+
+**Implementation Code Example:**
+
+```python
+# Deployment automation script
+class AnalyticsDeployment:
+    def __init__(self, environment):
+        self.environment = environment
+        self.wazuh_api = self._init_wazuh_api(environment)
+    
+    def deploy_use_case(self, use_case, detector):
+        """Deploy analytics use case to Wazuh"""
+        
+        # 1. Generate Wazuh rules
+        rules = detector.generate_wazuh_rules()
+        
+        # 2. Backup existing rules
+        self._backup_current_rules()
+        
+        # 3. Deploy new rules
+        try:
+            for rule in rules:
+                self.wazuh_api.add_rule(rule)
+            
+            # 4. Restart Wazuh manager
+            self.wazuh_api.restart_manager()
+            
+            # 5. Verify deployment
+            self._verify_rules_active(rules)
+            
+            # 6. Configure alerting
+            self._configure_alert_routing(use_case)
+            
+            # 7. Update documentation
+            self._update_runbook(use_case, rules)
+            
+            return {
+                'status': 'success',
+                'rules_deployed': len(rules),
+                'environment': self.environment
+            }
+            
+        except Exception as e:
+            # Rollback on error
+            self._rollback_deployment()
+            return {
+                'status': 'failed',
+                'error': str(e)
+            }
+    
+    def _configure_alert_routing(self, use_case):
+        """Configure how alerts are routed to SOC"""
+        routing_config = {
+            'use_case_id': use_case.id,
+            'severity_routing': {
+                'Critical': ['soc_l3_team', 'siem_alerts_critical'],
+                'High': ['soc_l2_team', 'siem_alerts_high'],
+                'Medium': ['soc_l1_team', 'siem_alerts_medium'],
+                'Low': ['automated_triage']
+            },
+            'notification_channels': {
+                'email': use_case.notification_emails,
+                'slack': use_case.slack_channel,
+                'pagerduty': use_case.oncall_rotation
+            }
+        }
+        
+        self.wazuh_api.configure_routing(routing_config)
+```
+
+**Success Metrics & KPIs:**
+
+| Metric | Target | Measurement Method | Review Frequency |
+|--------|--------|-------------------|------------------|
+| **Detection Accuracy** | >90% TPR, <5% FPR | Weekly validation against known incidents | Weekly |
+| **Mean Time to Detect** | <5 minutes for critical threats | Automated timestamp analysis | Daily |
+| **Alert Quality** | >80% actionable alerts | SOC analyst feedback | Weekly |
+| **Coverage** | >95% of attack techniques | MITRE ATT&CK mapping | Monthly |
+| **Analyst Efficiency** | <15 min average investigation time | SIEM metrics | Weekly |
+| **False Positive Trend** | Decreasing month-over-month | Alert disposition tracking | Monthly |
+
+**Operational Runbook:**
+
+```markdown
+# Analytics Use Case Runbook: UC-002 Lateral Movement Detection
+
+## Overview
+- **Use Case ID:** UC-002
+- **Analyst Team:** SOC L2
+- **Severity:** High
+- **MITRE ATT&CK:** T1021
+
+## Alert Response Procedure
+
+1. **Initial Triage (0-5 minutes)**
+   - Review alert details in Wazuh dashboard
+   - Check MISP for IOC matches
+   - Verify user identity and asset criticality
+
+2. **Investigation (5-15 minutes)**
+   - Query additional logs for user activity
+   - Check for privilege escalation events
+   - Review network traffic to/from affected hosts
+   - Consult behavioral baseline for anomalies
+
+3. **Containment (15-30 minutes)**
+   - If malicious: Isolate affected endpoints
+   - Disable compromised user account
+   - Block malicious IPs in firewall
+   - Notify incident response team
+
+4. **Documentation**
+   - Update MISP with new IOCs
+   - Create incident ticket
+   - Document timeline of events
+```
+
+---
+
+**Implementation Timeline:**
+
+```gantt
+title Custom Analytics Implementation
+dateFormat YYYY-MM-DD
+section Planning
+Requirements Gathering    :done, req, 2025-10-01, 14d
+Use Case Prioritization   :done, prio, after req, 7d
+section Development
+UC-001 Development        :active, uc1, 2025-10-22, 21d
+UC-002 Development        :uc2, after uc1, 21d
+UC-003 Development        :uc3, after uc2, 21d
+section Testing
+UC-001 Validation         :test1, after uc1, 14d
+UC-002 Validation         :test2, after uc2, 14d
+UC-003 Validation         :test3, after uc3, 14d
+section Deployment
+Staging Deployment        :stage, after test1, 14d
+Production Rollout        :prod, after stage, 21d
+section Operations
+Continuous Monitoring     :monitor, after prod, 30d
+Optimization & Tuning     :opt, after prod, 90d
+```
+
 ---
 
 ## 4. Enterprise Architecture Design
