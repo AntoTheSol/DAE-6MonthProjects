@@ -9,7 +9,7 @@ title: Gabriel Antonio Zepeda
   <p class="lead">Cybersecurity Professional | Security Enthusiast | CEO of Boss Inc </p>
 </div>
 
-[Resume](assets/Resume 2025-10-02.pdf)
+[Resume](assets/Resume-2025-10-02.pdf)
 
 ## Expected Graduation
 
