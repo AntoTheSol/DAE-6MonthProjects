@@ -1,0 +1,5 @@
+- Add GitHub Link to Resume
+- Organize and add more tools within my resumeunder technical skills
+- Include DAE in Education section
+- Project - What we built, why we built, who is using, most important (Talk about the useful outcomes with impact)
+- Try to provide numbers in projects
