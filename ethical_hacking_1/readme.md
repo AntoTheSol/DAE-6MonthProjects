@@ -840,11 +840,41 @@ nmap -sC -sV --script vuln 192.168.1.82
 ## 2.3 Conduct Domain Information Gathering
 
 ```bash
-theHarvester -d testphp.vulnweb.com -b google,bing
+uv run theHarvester -d github.com -b crtsh,hackertarget,rapiddns -f github_results
 ```
 
-![theHarvester Results](img/theharvester_output.png)
-*Screenshot Source: Create new*
+
+```bash
+
+
+```
+axelekwall.github.com:github.github.io
+axelhzf.github.com:github.github.io
+axiak.github.com:github.github.io
+axomi.github.com:github.github.io
+ayoub.github.com:github.github.io
+ayrat555.github.com:github.github.io
+ayshwaryas.github.com:github.github.io
+az.github.com:github.github.io
+azalea.github.com:github.github.io
+azat-co.github.com:github.github.io
+
+...
+
+zverik.github.com:github.github.io
+zvona.github.com:github.github.io
+zxcv740.github.com:github.github.io
+zy.github.com:github.github.io
+zydurisyqu.github.com:github.github.io
+zz85.github.com:github.github.io
+zzamboni.github.com:github.github.io
+zzpeng-root.github.com:github.github.io
+
+[*] Reporting started.
+[*] XML File saved.
+[*] JSON File saved.
+
+```
 
 ---
 
