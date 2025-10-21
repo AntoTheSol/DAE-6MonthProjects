@@ -1,4 +1,4 @@
-# 🔐 Security Operations & Compliance Project
+# Security Operations & Compliance Project
 
 This section documents key deliverables around security governance, encryption, incident response planning, and legal/ethical compliance as part of the SOC virtual lab project.
 
@@ -6,9 +6,9 @@ This section documents key deliverables around security governance, encryption, 
 
 # Cybersecurity Basics 1 Project Submission
 
-## ✅ Criteria Breakdown & Deliverables
+## Criteria Breakdown & Deliverables
 
-### 🧯 1. Create an Incident Response Plan
+### 1. Create an Incident Response Plan
 
 - [x] **Detection**
   - [x] Describe at least 1 method used to detect a security incident  
@@ -29,7 +29,7 @@ This section documents key deliverables around security governance, encryption, 
 
 ---
 
-#### 🔍 Detection
+#### Detection
 
   - Method Used:
     - Detected through SIEM alert (Wazuh) flagging multiple failed login attempts on the FTP service from the same IP within a short time frame.
@@ -45,7 +45,7 @@ Example log snippet:
 Jul 25 16:32:11 ftpserver vsftpd[2256]: FAIL LOGIN: Client "192.168.1.45"
 ```
 
-#### 🛑 Containment
+#### Containment
 
   - Strategy:
 
@@ -55,7 +55,7 @@ Jul 25 16:32:11 ftpserver vsftpd[2256]: FAIL LOGIN: Client "192.168.1.45"
 
       - Alerted internal team and marked the system under investigation.
 
-#### 🧹 Eradication & Recovery
+#### Eradication & Recovery
 
   - Eradication Steps:
 
@@ -77,14 +77,14 @@ Jul 25 16:32:11 ftpserver vsftpd[2256]: FAIL LOGIN: Client "192.168.1.45"
 
       - Confirmed system stability and no signs of persistence/backdoors.
 
-💣 Attack Type
+#### Attack Type
 
   - Brute Force Attack:
     
     The attacker used automated tools (e.g., Hydra) to guess user credentials by repeatedly attempting to log in. This is a Denial of Service (DoS)-style attack on authentication systems and could lead to unauthorized access.
 
 
-### 📜 2. Develop a Comprehensive Security Policy
+### 2. Develop a Comprehensive Security Policy
 
 - [x] **Rules/Guidelines**
   - [x] Define at least **3 security rules or guidelines**
@@ -101,7 +101,7 @@ Jul 25 16:32:11 ftpserver vsftpd[2256]: FAIL LOGIN: Client "192.168.1.45"
 
 ---
 
-#### 📋 Rules / Guidelines
+#### Rules / Guidelines
 
   - Password Policy:
     - All user passwords must meet complexity requirements (min 12 characters, upper/lowercase, number, symbol).
@@ -112,7 +112,7 @@ Jul 25 16:32:11 ftpserver vsftpd[2256]: FAIL LOGIN: Client "192.168.1.45"
   - Patch Management:
     - Systems and software must be updated monthly and after any critical security bulletin.
 
-#### 🧭 Incident Response Plan (Step-by-Step)
+#### Incident Response Plan (Step-by-Step)
 
   - Detect suspicious login patterns (via SIEM or logs).
 
@@ -126,7 +126,7 @@ Jul 25 16:32:11 ftpserver vsftpd[2256]: FAIL LOGIN: Client "192.168.1.45"
 
   - Document findings and update playbooks.
 
-🔒 CIA Triad Alignment
+#### CIA Triad Alignment
 
   - Confidentiality: Enforcing strong access control and encryption of FTP data in transit.
 
@@ -134,7 +134,7 @@ Jul 25 16:32:11 ftpserver vsftpd[2256]: FAIL LOGIN: Client "192.168.1.45"
 
   - Availability: Blocking brute-force attempts prevents service disruption and maintains uptime.
 
-### 🔐 3. Apply Encryption Techniques
+### 3. Apply Encryption Techniques
 
 - [x] **Symmetric Encryption**
   - [x] Show an example of:
@@ -149,7 +149,7 @@ Jul 25 16:32:11 ftpserver vsftpd[2256]: FAIL LOGIN: Client "192.168.1.45"
 
 #### Symmetric Encryption
 
-- 🔑 What It Is:
+- What It Is:
 
   - Symmetric encryption uses a single secret key to both encrypt and decrypt data.
 
@@ -220,7 +220,7 @@ Decrypted message (plaintext): Hello world!
 import hashlib  # Standard Python library for hashing functions
 
 # Define the input data to be hashed.
-# This can be any string — e.g., a password, file contents, or message.
+# This can be any string – e.g., a password, file contents, or message.
 input_data = "FTPadmin123"
 
 # Convert the input string to bytes.
@@ -253,7 +253,7 @@ SHA-256 hash:   e7d92064a873b4405d4666b3979b36a2e36921ab899e432d7e4009f10fd93023
 
 ```
 
-### ⚖️ 4. Demonstrate Legal and Ethical Compliance
+### 4. Demonstrate Legal and Ethical Compliance
 
 - [x] **Legal Compliance**
   - [x] Identify **at least 2 relevant laws/regulations**, such as:
@@ -271,9 +271,9 @@ SHA-256 hash:   e7d92064a873b4405d4666b3979b36a2e36921ab899e432d7e4009f10fd93023
 
 ---
 
-### 📚 Relevant Laws / Regulations
+### Relevant Laws / Regulations
 
-#### 📚 Legal Compliance
+#### Legal Compliance
 
 - Law 1: GDPR (General Data Protection Regulation) – EU
 
@@ -303,7 +303,7 @@ SHA-256 hash:   e7d92064a873b4405d4666b3979b36a2e36921ab899e432d7e4009f10fd93023
 
       - Disclosure Requirements: Users have the right to know what personal data is collected and if it was exposed in a breach.
 
-      - Data Security Mandate: Businesses must implement “reasonable security procedures” to protect data.
+      - Data Security Mandate: Businesses must implement "reasonable security procedures" to protect data.
 
   - Incident Response Incorporation:
 
@@ -311,12 +311,12 @@ SHA-256 hash:   e7d92064a873b4405d4666b3979b36a2e36921ab899e432d7e4009f10fd93023
 
       - In the event of confirmed account compromise, you provide disclosure to users as required by CCPA.
 
-      - You implement technical safeguards (e.g., encryption, account lockouts) to be considered compliant with CCPA’s "reasonable security" clause.
+      - You implement technical safeguards (e.g., encryption, account lockouts) to be considered compliant with CCPA's "reasonable security" clause.
 
 
 #### Ethical Considerations
 
-- 🔍 1. Data Privacy
+- 1. Data Privacy
 
   - Even during a security incident, analysts must protect the privacy and dignity of users.
 
@@ -330,7 +330,7 @@ SHA-256 hash:   e7d92064a873b4405d4666b3979b36a2e36921ab899e432d7e4009f10fd93023
 
       - Anonymizing logs for reports unless identification is necessary for remediation.
 
-- 🔐 2. Responsible Disclosure
+- 2. Responsible Disclosure
 
   - If the breach involves third-party systems or software (e.g., vulnerabilities in FTP software), you should:
 
@@ -340,16 +340,16 @@ SHA-256 hash:   e7d92064a873b4405d4666b3979b36a2e36921ab899e432d7e4009f10fd93023
 
       - Provide enough technical detail to help them address the issue without revealing exploit instructions.
 
-- 🫱🏽‍🫲🏿 3. User Consent and Transparency
+- 3. User Consent and Transparency
 
   - If monitoring tools (like Wazuh) collect user behavior data, transparency is key:
 
-      - Inform users (employees) of security monitoring in your organization’s security policy or onboarding materials.
+      - Inform users (employees) of security monitoring in your organization's security policy or onboarding materials.
 
       - Limit intrusion and surveillance to only what is necessary for security.
 
 
-#### ✅ Alignment with Compliance
+#### Alignment with Compliance
 
 | Area                         | How the Plan Supports It                                                                                                  |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------- |

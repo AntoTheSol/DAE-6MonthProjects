@@ -21,7 +21,6 @@
   2. **Network Layer:** Require device posture validation (up-to-date patches, endpoint protection enabled) before granting access to internal resources.  
 - **Result:** Access is not granted based on network location alone, but on verified trust at multiple layers.  
 
-
 ```mermaid
 flowchart TD
     A[User Requests Access] --> B{Multi-Factor Authentication}
