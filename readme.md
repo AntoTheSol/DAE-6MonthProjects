@@ -42,6 +42,7 @@ This repository contains my coursework, projects, and technical development mate
 - [risk_management_1](./risk_management_1/) - Risk assessment frameworks, threat modeling, risk mitigation strategies, and business continuity planning
 
 ### Technical Development
+- [contribution](./contribution/) - My contributions to other GitHub repositories
 - [mock_interviews](./mock_interviews/) - Technical interview preparation and practice
 - [ai_utilization](./ai_utilization/) - AI tools integration and practical applications
 - [troubleshooting_debugging](./troubleshooting_debugging/) - Problem-solving exercises and debugging techniques
