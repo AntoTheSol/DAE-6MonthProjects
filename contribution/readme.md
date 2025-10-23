@@ -74,6 +74,8 @@ Open source contributions allow developers to:
 
 **Repository:** https://github.com/vil/H4X-Tools
 
+![Repo](img/H4X-Repo.png)
+
 ![Gui](img/H4X-gui.png)
 
 ![Tools](img/H4X-Tools.png)
